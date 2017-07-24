@@ -1,0 +1,68 @@
+body {
+  margin: 0;
+}
+
+.roundbox {
+  padding: 8px;
+  margin: auto;
+  width: 95%;
+  min-height: inherit;
+  /*border-radius: 5px;*/
+}
+
+.service {
+  margin-bottom: 10px;
+}
+
+.serviceLabel {
+  background-color: rgb(63,81,181);
+  color: white;
+}
+
+.characteristic {
+  margin-bottom: 10px;
+  /*background-color: lightgreen;*/
+}
+
+.property {
+  margin-bottom: 10px;
+  /*background-color: lightgoldenrodyellow;*/
+}
+
+.charValue {
+  font-weight: bold;
+  color: black;
+}
+
+.mybutton {
+  text-transform: none;
+  margin-left: 8px;
+}
+
+#roboImg {
+  display: none;
+}
+
+#canvas {
+  /*border: 1px solid black;*/
+
+  width: 100%;
+  /*opacity:.65;*/
+  /*min-height:100vh;*/
+  margin:0 auto;
+  position:fixed;
+  background: transparent;
+  /*border-radius: 5px;*/
+}
+
+#video
+{
+  width: 100%;
+  /*opacity:.65;
+  min-height:100vh;*/
+  margin:0 auto;
+  position:fixed;
+  background: transparent;
+  /*border-radius: 5px;*/
+  z-index: -1;
+}

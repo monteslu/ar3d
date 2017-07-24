@@ -1,0 +1,38 @@
+{
+  "name": "ar2d",
+  "version": "0.1.0",
+  "description": "ar 3d js web app",
+  "scripts": {
+    "build": "webpack",
+    "start": "ecstatic --port 3013"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monteslu/ar2d.git"
+  },
+  "keywords": [
+    "ble",
+    "webbluetooth",
+    "bluetooth"
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/monteslu/ar2d/issues"
+  },
+  "homepage": "https://robo.surge.sh",
+  "dependencies": {
+    "perspectivejs": "^1.0.0"
+  },
+  "devDependencies": {
+    "blueimp-md5": "^2.7.0",
+    "bufferutil": "^1.2.1",
+    "ecstatic": "^1.4.0",
+    "jquery": "^3.2.1",
+    "js-aruco": "^0.1.0",
+    "json-loader": "^0.5.4",
+    "lodash": "^4.13.1",
+    "three": "^0.86.0",
+    "utf-8-validate": "^1.2.1",
+    "webpack": "^1.12.11"
+  }
+}
