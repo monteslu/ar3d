@@ -249,13 +249,13 @@ $(function() {
       if(!scanning) {
         scanning = true;
         parseVideoCtx.drawImage(video, 0,0, parseVideoCanvas.width, parseVideoCanvas.height);
-        var decodeStart = Date.now();
+        // var decodeStart = Date.now();
         client.decode(parseVideoCtx, function(bc) {
-          console.log('decode time', Date.now() - decodeStart);
+          // console.log('decode time', Date.now() - decodeStart);
           lastBC = bc || lastBC;
           scanning = false;
           if(bc) {
-            console.log('bc', bc);
+            // console.log('bc', bc);
           }
         });
       }
