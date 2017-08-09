@@ -4,19 +4,21 @@ var Perspective = require('perspectivejs');
 var POS = require('js-aruco').POS1;
 var THREE = global.THREE = require('three');
 
-
+var fontData = require('./fonts/optimer_regular.typeface.json');
 var QRClient = require('./qrclient');
 var lightning = require('./lightning');
 var AvatarInit = require('./avatar');
+
+var font = new THREE.Font(fontData);
 var STARTING_WORD = 'NodeBots';
 var AVATAR_SIZE = 256;
 var AVATAR_PIC_SIZE = 100;
 var MAX_CAM_SIZE = 800;
 var QR_SIZE_MILLIS = 1000;
 var qrScale = 1;
-var canvas, img, context, video, start, streaming, detector, lastBC, posit, scanning;
+var canvas, img, context, video, start, streaming, detector, lastBC, posit, scanning, videoPlaying, lastText, lastColor;
 var scene, camera, renderer;
-var geometry, material, mesh;
+var geometry, material, mesh, textGeometry, textMesh, textGroup;
 
 var colors = ['#26a9e0','#8a5d3b', '#37b34a', '#a6a8ab', '#f7921e', '#ff459f', '#90278e', '#ed1c24', '#f1f2f3', '#faec31'];
 var lastUpdate = Date.now();
@@ -64,8 +66,8 @@ function scaleCorners(input, scale, ratio) {
 function centerCorners(corners, canvas, scale) {
   return _.map(corners, function(corner){
     return {
-      x: (corner.x * scale) - (canvas.width / 2),
-      y: (canvas.height / 2) - (corner.y * scale)
+      x: Math.round((corner.x * scale) - (canvas.width / 2)),
+      y: Math.round((canvas.height / 2) - (corner.y * scale))
     };
   })
 }
@@ -108,7 +110,29 @@ $(function() {
       var vu = window.URL || window.webkitURL;
       video.src = vu.createObjectURL(stream);
     }
-    video.play();
+
+    var playPromise = video.play();
+    if (playPromise !== null) {
+      playPromise.then(function() {
+        videoPlaying = true;
+      })
+      .catch(function(err) {
+        console.log('didnt like auto playing', err);
+        //mobile needs a touch to start playing
+        document.body.addEventListener('click', function() {
+          if(!videoPlaying) {
+            console.log('play on this click');
+            video.play();
+            videoPlaying = true;
+          }
+        }, true);
+      });
+    }
+    else {
+      videoPlaying = true;
+    }
+
+
   }, function(error) {
     console.error(error);
   });
@@ -123,6 +147,8 @@ $(function() {
 
     console.log('starting video dimentions', video.videoWidth, video.videoHeight);
 
+
+
     if(video.videoHeight > MAX_CAM_SIZE) {
       qrScale = video.videoHeight / MAX_CAM_SIZE;
     }
@@ -133,7 +159,7 @@ $(function() {
     parseVideoCanvas.width = video.videoWidth / qrScale;
     parseVideoCanvas.height = video.videoHeight / qrScale;
 
-    console.log('scaled video dimentions', video.videoWidth, video.videoHeight);
+    console.log('scaled video dimentions', parseVideoCanvas.width, parseVideoCanvas.height, 'scale', qrScale);
 
 
     scene = new THREE.Scene();
@@ -161,49 +187,46 @@ $(function() {
 
     scene.add(pointLight);
 
-    //renderer.setSize( window.innerWidth, window.innerHeight );
 
-    // document.body.appendChild( renderer.domElement );
 
     console.log('gemoetry', geometry);
 
-    function oldRender(bc) {
-      ctx.drawImage(video, 0,0);
-
-      if(bc || lastBC) {
-        var lc = lightning();
-        lastBC = bc || lastBC;
-
-        // drawImage(imageObj, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
-
-        avatarCtx.drawImage(lc, 100, 100, AVATAR_SIZE, AVATAR_SIZE, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
-        var buckets = avatar.render(lastBC.rawValue, avatarCtx);
-
-        var points = lastBC.cornerPoints;
-
-        var pers = new Perspective(ctx, avatarCanvas);
-
-        var rotateRadians = Math.atan2(points[3].y - points[2].y, points[3].x - points[2].x) + Math.PI;
-        var avgHeight = ((points[3].y - points[0].y) + (points[2].y - points[1].y)) / 2;
-
-        var textX = (points[3].x * qrScale + points[2].x * qrScale) / 2;
-        var textY = (points[3].y * qrScale + points[2].y * qrScale) / 2 + (0.4 * avgHeight);
-
-        ctx.save();
-        ctx.translate(textX, textY);
-        ctx.rotate(rotateRadians);
-        ctx.translate(-textX, -textY);
-        ctx.textAlign = "center";
-        ctx.textBaseline = 'middle';
-        ctx.font = Math.round((points[3].y - points[0].y) * 0.4) + 'px serif';
-        ctx.fillStyle = colors[buckets[5]];
-        ctx.lineWidth = 0.5;
-        ctx.strokeStyle = invertColor(colors[buckets[5]]);
-        ctx.fillText(lastBC.rawValue, textX, textY);
-        ctx.strokeText(lastBC.rawValue, textX, textY);
-        ctx.restore();
+    function createText(text) {
+      var createTime = Date.now();
+      if(textGroup) {
+        scene.remove(textGroup);
+        console.log('remove text time', Date.now() - createTime);
       }
 
+      textGeometry = new THREE.TextGeometry( text, {
+        font: font,
+        size: 140,
+        height: 50,
+        curveSegments: 2,
+    		bevelEnabled: false,
+    		bevelThickness: 6,
+    		bevelSize: 8,
+    		bevelSegments: 4
+      });
+      textGeometry.computeBoundingBox();
+      var centerOffset = -0.5 * ( textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x );
+
+      var materials = [
+        new THREE.MeshBasicMaterial( { color: lastColor || Math.random() * 0xffffff, overdraw: 0.5 } ),
+        new THREE.MeshBasicMaterial( { color: 0x555555, overdraw: 0.5 } )
+      ];
+      textMesh = new THREE.Mesh( textGeometry, materials );
+
+      textMesh.position.x = centerOffset;
+      textMesh.rotation.y = Math.PI * 2;
+      textGroup = new THREE.Group();
+      textGroup.add( textMesh );
+      scene.add( textGroup );
+
+      window.textMesh = textMesh;
+      window.textGroup = textGroup;
+      textMesh.centerOffset = centerOffset;
+      console.log('text create time', Date.now() - createTime, textMesh);
 
     }
 
@@ -214,16 +237,22 @@ $(function() {
         avatarCtx.drawImage(lc, 100, 100, AVATAR_SIZE, AVATAR_SIZE, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
         cubeMaterial.map.needsUpdate = true;
         var buckets = avatar.render(lastBC.rawValue, avatarCtx);
+        lastColor = colors[buckets[5]];
+
+        if(lastText !== lastBC.rawValue) {
+          lastText = lastBC.rawValue;
+          createText(lastBC.rawValue);
+        }
 
         var centeredPts = centerCorners(lastBC.cornerPoints, canvas, qrScale);
         var pose = posit.pose(centeredPts);
         // console.log('posit', bc.cornerPoints, centeredPts, pose)
 
-        mesh.position.x = pose.bestTranslation[0] / 2;
-        mesh.position.y = pose.bestTranslation[1] / 2;
-        var prevZ = mesh.position.z;
-        mesh.position.z = (4500 - pose.bestTranslation[2]) / 5;
-        // console.log(pose.bestTranslation, prevZ, mesh.position.z);
+        var newX = pose.bestTranslation[0] / 2;
+        var newY = pose.bestTranslation[1] / 2;
+        var newZ = (4500 - pose.bestTranslation[2]) / 5;
+
+
 
         var thetaX = Math.atan2(pose.bestRotation[2][1], pose.bestRotation[2][2]);
         var thetaY = Math.atan2(pose.bestRotation[2][0], Math.sqrt(pose.bestRotation[2][1] * pose.bestRotation[2][1] + pose.bestRotation[2][2] * pose.bestRotation[2][2]) );
@@ -231,10 +260,35 @@ $(function() {
 
         // console.log('posit', pose.bestRotation, thetaX, thetaY, thetaZ);
 
+        //console.log(thetaX, thetaY);
+        thetaX = Math.round(thetaX * 100) / 100;
+        if(Math.abs(thetaX) < 0.1) {
+          thetaX = 0;
+        }
+        thetaY = Math.round(thetaY * 100) / 100;
+        if(Math.abs(thetaY) < 0.1) {
+          thetaY = 0;
+        }
+
+        // console.log(thetaX, thetaY);
+
+        mesh.position.x = newX;
+        mesh.position.y = newY;
+        mesh.position.z = newZ;
+
         mesh.rotation.x = -thetaX; //very jumpy
         mesh.rotation.y = thetaY;
         mesh.rotation.z = thetaZ;
 
+        if(textGroup) {
+          textGroup.position.x = newX;
+          textGroup.position.y = newY - 400;
+          textGroup.position.z = newZ + 50;
+
+          textGroup.rotation.x = -thetaX;
+          textGroup.rotation.y = thetaY;
+          textGroup.rotation.z = thetaZ;
+        }
 
         renderer.render( scene, camera );
         // console.log('render end', Date.now() - renderStart);
@@ -246,7 +300,7 @@ $(function() {
     function step(timestamp) {
 
       // might be scanning on own thread, but should always render
-      if(!scanning) {
+      if(videoPlaying && !scanning) {
         scanning = true;
         parseVideoCtx.drawImage(video, 0,0, parseVideoCanvas.width, parseVideoCanvas.height);
         // var decodeStart = Date.now();
@@ -255,6 +309,9 @@ $(function() {
           lastBC = bc || lastBC;
           scanning = false;
           if(bc) {
+            if(lastBC && lastBC.rawValue !== bc.rawValue) {
+              console.log('new barcode', bc);
+            }
             // console.log('bc', bc);
           }
         });

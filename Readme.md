@@ -2,7 +2,7 @@ Augmented Reality in 3D with QR codes
 =====================================
 
 
-![monteslu](monteslu.png)
+![monteslu](ar3d.png)
 
 
 Simple app to demonstrate Augmented Reality using QR codes.
