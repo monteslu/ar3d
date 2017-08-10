@@ -1,6 +1,5 @@
 var _ = require('lodash');
 var $ = require ('jquery');
-var Perspective = require('perspectivejs');
 var POS = require('js-aruco').POS1;
 var THREE = global.THREE = require('three');
 
@@ -13,7 +12,7 @@ var font = new THREE.Font(fontData);
 var STARTING_WORD = 'NodeBots';
 var AVATAR_SIZE = 256;
 var AVATAR_PIC_SIZE = 100;
-var MAX_CAM_SIZE = 800;
+var MAX_CAM_SIZE = 1280;
 var QR_SIZE_MILLIS = 1000;
 var qrScale = 1;
 var canvas, img, context, video, start, streaming, detector, lastBC, posit, scanning, videoPlaying, lastText, lastColor;
@@ -92,13 +91,24 @@ $(function() {
   avatarCanvas.width = AVATAR_SIZE;
   var avatarCtx = avatarCanvas.getContext('2d');
 
+  var accelData = {x: 0, y: 0, z: 0};
+  var accelDataText, prevAccelDataText;
+  window.accelData = accelData;
+  var midiFound = false;
+
   navigator.getMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia);
 
 
   var constraints = {
     audio: false,
     video: {
-      facingMode: 'environment'
+      // facingMode: 'environment',
+      optional: [
+          // {minWidth: 800},
+          {minWidth: 1280},
+          // {minWidth: 1920},
+          // {minWidth: 2560}
+      ]
     },
   };
 
@@ -195,18 +205,16 @@ $(function() {
       var createTime = Date.now();
       if(textGroup) {
         scene.remove(textGroup);
-        console.log('remove text time', Date.now() - createTime);
+        // console.log('remove text time', Date.now() - createTime);
       }
 
       textGeometry = new THREE.TextGeometry( text, {
         font: font,
         size: 140,
         height: 50,
-        curveSegments: 2,
+        curveSegments: 1,
     		bevelEnabled: false,
-    		bevelThickness: 6,
-    		bevelSize: 8,
-    		bevelSegments: 4
+
       });
       textGeometry.computeBoundingBox();
       var centerOffset = -0.5 * ( textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x );
@@ -226,7 +234,7 @@ $(function() {
       window.textMesh = textMesh;
       window.textGroup = textGroup;
       textMesh.centerOffset = centerOffset;
-      console.log('text create time', Date.now() - createTime, textMesh);
+      console.log('text create time', Date.now() - createTime);
 
     }
 
@@ -244,13 +252,23 @@ $(function() {
           createText(lastBC.rawValue);
         }
 
+        if(midiFound) {
+          accelDataText = `x:${accelData.x} y:${accelData.y} z:${accelData.z}`;
+          if(accelDataText != prevAccelDataText) {
+            createText(accelDataText);
+            prevAccelDataText = accelDataText;
+          }
+
+        }
+
+
         var centeredPts = centerCorners(lastBC.cornerPoints, canvas, qrScale);
         var pose = posit.pose(centeredPts);
         // console.log('posit', bc.cornerPoints, centeredPts, pose)
 
         var newX = pose.bestTranslation[0] / 2;
         var newY = pose.bestTranslation[1] / 2;
-        var newZ = (4500 - pose.bestTranslation[2]) / 5;
+        var newZ = (6500 - pose.bestTranslation[2]) / 5;
 
 
 
@@ -326,6 +344,47 @@ $(function() {
   });
 
 
+  // request MIDI access
+  if (navigator.requestMIDIAccess) {
+      navigator.requestMIDIAccess({
+          sysex: false
+      }).then(onMIDISuccess, onMIDIFailure);
+  } else {
+      node.error("No MIDI support in your browser.");
+  }
+
+
+  // midi functions
+  function onMIDISuccess(midiAccess) {
+
+      var inputs = Array.from(midiAccess.inputs.values());
+      console.log('inputs', inputs);
+
+      _.forEach(inputs, function(input){
+        midiFound = true;
+        setTimeout(function() {
+          document.title = document.title + ' midi';
+        },1500);
+
+        input.onmidimessage = function(message) {
+            var data = message.data; // this gives us our [command/channel, note, velocity] data.
+            // console.log('MIDI data in', data); // MIDI data [144, 63, 73]
+            if(data[0] === 144){
+              accelData.x = data[1] + (data[2] << 7);
+            } else if(data[0] === 145){
+              accelData.y = data[1] + (data[2] << 7);
+            } else if(data[0] === 146){
+              accelData.z = data[1] + (data[2] << 7);
+            }
+        };
+      });
+
+  }
+
+  function onMIDIFailure(error) {
+      // when we get a failed response, run this code
+      node.error("No access to MIDI devices or your browser doesn't support WebMIDI API" + error);
+  }
 
 
 
